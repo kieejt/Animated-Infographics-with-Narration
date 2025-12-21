@@ -4,13 +4,13 @@ A powerful web application that turns CSV data into animated infographic videos 
 
 ## Features
 
-- **📊 Dynamic Charts**: Support for Bar, Line, and Pie charts directly from CSV data.
-- **🤖 AI Script Generation**: Uses Google Gemini to analyze your data and write compelling narration scripts.
-- **🗣️ Advanced Text-to-Speech**:
+- **Dynamic Charts**: Support for Bar, Line, and Pie charts directly from CSV data.
+- **AI Script Generation**: Uses Google Gemini to analyze your data and write compelling narration scripts.
+- **Advanced Text-to-Speech**:
   - Multi-language support (English, Vietnamese, Japanese, etc.).
   - **Granular Speed Control**: Adjust playback speed from 0.5x to 2.0x (powered by FFmpeg).
-- **🎬 Professional Video Export**: Built with [Remotion](https://www.remotion.dev/) for high-quality MP4 rendering.
-- **📝 Subtitles**: Auto-generated subtitles synchronized with the narration.
+- **Professional Video Export**: Built with [Remotion](https://www.remotion.dev/) for high-quality MP4 rendering.
+- **Subtitles**: Auto-generated subtitles synchronized with the narration.
 
 ## Prerequisites
 

@@ -49,7 +49,7 @@ export default function NarrationGenerator() {
 
         try {
             // split into sentences and get URLs
-            const results = getTTSAudioUrls(text, ttsVoice);
+            const results = getTTSAudioUrls(text, ttsVoice, ttsSpeed);
 
             // Calculate duration for each segment
             const segmentsWithDuration = await Promise.all(results.map(async (segment) => {

@@ -132,6 +132,7 @@ const renderPlugin = () => {
            const urlObj = new URL(req.originalUrl || req.url, `http://${req.headers.host}`);
            const text = urlObj.searchParams.get('text');
            const lang = urlObj.searchParams.get('lang') || 'en';
+           const speed = parseFloat(urlObj.searchParams.get('speed') || '1.0');
            
            // ... (middleware checks) ...
            if (req.url !== '/' && !req.url.startsWith('/?')) {
@@ -148,8 +149,8 @@ const renderPlugin = () => {
            try {
              // CACHING LOGIC
              const crypto = await import('crypto');
-             // Create a hash of the text + lang to use as filename
-             const hash = crypto.createHash('md5').update(text + lang).digest('hex');
+             // Create a hash of the text + lang + speed to use as filename
+             const hash = crypto.createHash('md5').update(text + lang + speed).digest('hex');
              const cacheDir = path.resolve('node_modules/.cache/tts');
              const cacheFile = path.join(cacheDir, `${hash}.mp3`);
 
@@ -173,27 +174,70 @@ const renderPlugin = () => {
                 throw new Error('Could not find getAudioUrl in google-tts-api');
              }
 
+             // Start with normal speed download
              const url = getAudioUrl(text, {
                 lang: lang,
                 slow: false,
                 host: 'https://translate.google.com',
              });
              
-             console.log('Fetching/Caching TTS ->', url);
-
+             console.log('Fetching TTS ->', url);
              const audioRes = await fetch(url);
              if (!audioRes.ok) throw new Error(`Google TTS upstream failed: ${audioRes.status}`);
              
              const arrayBuffer = await audioRes.arrayBuffer();
              const buffer = Buffer.from(arrayBuffer);
              
-             // Write to cache
-             fs.writeFileSync(cacheFile, buffer);
-             
-             // Serve
-             res.setHeader('Content-Type', 'audio/mpeg');
-             res.setHeader('Content-Length', buffer.length);
-             res.end(buffer);
+             // If speed is 1.0, save directly
+             if (Math.abs(speed - 1.0) < 0.01) {
+                fs.writeFileSync(cacheFile, buffer);
+                res.setHeader('Content-Type', 'audio/mpeg');
+                res.setHeader('Content-Length', buffer.length);
+                res.end(buffer);
+             } else {
+                 // Process with FFmpeg
+                 console.log(`Processing audio speed: ${speed}x`);
+                 const tempInput = path.join(cacheDir, `${hash}_raw.mp3`);
+                 fs.writeFileSync(tempInput, buffer);
+                 
+                 const ffmpeg = (await import('fluent-ffmpeg')).default;
+                 const ffmpegPath = (await import('@ffmpeg-installer/ffmpeg')).default.path;
+                 ffmpeg.setFfmpegPath(ffmpegPath);
+                 
+                 await new Promise((resolve, reject) => {
+                     let command = ffmpeg(tempInput);
+                     
+                     // atempo filter supports 0.5 to 2.0
+                     // For speeds outside this range, we might need chaining, but slider is 0.5-2.0
+                     // Ensure speed is within reasonable bounds for safe execution
+                     let safeSpeed = Math.max(0.5, Math.min(2.0, speed));
+                     
+                     command.audioFilters(`atempo=${safeSpeed}`);
+                     
+                     command
+                        .toFormat('mp3')
+                        .on('error', (err) => {
+                            console.error('FFmpeg error:', err);
+                            reject(err);
+                        })
+                        .on('end', () => {
+                            console.log('FFmpeg processing finished');
+                            resolve();
+                        })
+                        .save(cacheFile);
+                 });
+                 
+                 // Cleanup temp
+                 if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+                 
+                 // Serve processed file
+                 const stat = fs.statSync(cacheFile);
+                 res.writeHead(200, {
+                     'Content-Type': 'audio/mpeg',
+                     'Content-Length': stat.size
+                 });
+                 fs.createReadStream(cacheFile).pipe(res);
+             }
              
            } catch (err) {
              console.error('TTS Proxy Error:', err);

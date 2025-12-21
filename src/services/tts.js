@@ -1,4 +1,4 @@
-export function getTTSAudioUrls(text, lang = 'en') {
+export function getTTSAudioUrls(text, lang = 'en', speed = 1.0) {
   if (!text) return [];
 
   // Simple clean up
@@ -23,7 +23,7 @@ export function getTTSAudioUrls(text, lang = 'en') {
   return chunks.map((chunk, index) => ({
     // url: `https://translate.google.com/translate_tts?ie=UTF-8&client=gtx&q=${encodeURIComponent(chunk)}&tl=en`,
     // New local proxy URL
-    url: `/api/tts?text=${encodeURIComponent(chunk)}&lang=${lang}`,
+    url: `/api/tts?text=${encodeURIComponent(chunk)}&lang=${lang}&speed=${speed}`,
     shortText: chunk,
     index
   }));

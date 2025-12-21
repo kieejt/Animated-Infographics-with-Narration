@@ -15,6 +15,12 @@ out
 .env
 .env.local
 
+# Generated audio (TTS output, etc.)
+public/audio/*.mp3
+public/audio/*.wav
+public/audio/*.ogg
+public/audio/*.m4a
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

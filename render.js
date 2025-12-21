@@ -51,8 +51,9 @@ async function render() {
       
       console.log('🔄 Converting audio URLs to public file paths...');
       inputProps.audioUrls = await Promise.all(inputProps.audioUrls.map(async (segment) => {
-        // Parse URL để lấy text và lang
-        const urlMatch = segment.url.match(/\/api\/tts\?text=([^&]+)&lang=([^&]+)/);
+        // Parse URL để lấy text, lang và speed
+        // Update regex to handle potential speed param
+        const urlMatch = segment.url.match(/\/api\/tts\?text=([^&]+)&lang=([^&]+)(?:&speed=([^&]+))?/);
         if (!urlMatch) {
           // Nếu không phải API URL, giữ nguyên (có thể đã là file path)
           if (segment.url.startsWith('/audio/') || segment.url.startsWith('http')) {
@@ -64,9 +65,10 @@ async function render() {
         
         const text = decodeURIComponent(urlMatch[1]);
         const lang = urlMatch[2];
+        const speed = parseFloat(urlMatch[3] || '1.0');
         
-        // Tạo hash giống như TTS endpoint
-        const hash = crypto.createHash('md5').update(text + lang).digest('hex');
+        // Tạo hash giống như TTS endpoint (update with speed)
+        const hash = crypto.createHash('md5').update(text + lang + speed).digest('hex');
         const cacheFile = path.join(cacheDir, `${hash}.mp3`);
         const publicFile = path.join(publicAudioDir, `${hash}.mp3`);
         
@@ -86,7 +88,7 @@ async function render() {
           };
         } else {
           // Nếu file chưa tồn tại, cần download từ Google TTS
-          console.log(`  ⬇️  Downloading audio for: "${text.substring(0, 50)}..."`);
+          console.log(`  ⬇️  Downloading audio for: "${text.substring(0, 50)}..." (speed: ${speed})`);
           try {
             const googleTTSModule = await import('google-tts-api');
             const getAudioUrl = googleTTSModule.getAudioUrl || googleTTSModule.default?.getAudioUrl;
@@ -95,6 +97,7 @@ async function render() {
               throw new Error('Could not find getAudioUrl in google-tts-api');
             }
             
+            // Start with normal speed download
             const audioUrl = getAudioUrl(text, {
               lang: lang,
               slow: false,
@@ -109,10 +112,45 @@ async function render() {
             const arrayBuffer = await audioRes.arrayBuffer();
             const buffer = Buffer.from(arrayBuffer);
             
-            // Lưu vào cả cache và public
-            fs.writeFileSync(cacheFile, buffer);
-            fs.writeFileSync(publicFile, buffer);
-            console.log(`  ✓ Downloaded and saved: ${hash}.mp3`);
+            // Check for speed adjustment
+            if (Math.abs(speed - 1.0) < 0.01) {
+                fs.writeFileSync(cacheFile, buffer);
+                fs.writeFileSync(publicFile, buffer);
+                console.log(`  ✓ Downloaded and saved: ${hash}.mp3`);
+            } else {
+                 console.log(`  Processing audio speed: ${speed}x`);
+                 const tempInput = path.join(cacheDir, `${hash}_raw.mp3`);
+                 fs.writeFileSync(tempInput, buffer);
+                 
+                 const ffmpeg = (await import('fluent-ffmpeg')).default;
+                 const ffmpegPath = (await import('@ffmpeg-installer/ffmpeg')).default.path;
+                 ffmpeg.setFfmpegPath(ffmpegPath);
+                 
+                 await new Promise((resolve, reject) => {
+                     let command = ffmpeg(tempInput);
+                     let safeSpeed = Math.max(0.5, Math.min(2.0, speed));
+                     
+                     command.audioFilters(`atempo=${safeSpeed}`);
+                     
+                     command
+                        .toFormat('mp3')
+                        .on('error', (err) => {
+                            console.error('  ❌ FFmpeg error:', err);
+                            reject(err);
+                        })
+                        .on('end', () => {
+                            console.log(`  ✓ Processed and saved: ${hash}.mp3`);
+                            resolve();
+                        })
+                        .save(cacheFile);
+                 });
+                 
+                 // Cleanup temp
+                 if (fs.existsSync(tempInput)) fs.unlinkSync(tempInput);
+                 
+                 // Copy to public
+                 fs.copyFileSync(cacheFile, publicFile);
+            }
             
             // Sử dụng đường dẫn tương đối từ public
             return {

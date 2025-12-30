@@ -26,12 +26,12 @@ async function render() {
       try {
         const propsData = fs.readFileSync(inputPropsFile, 'utf-8');
         inputProps = JSON.parse(propsData);
-        console.log('📄 Loaded input props from file');
+        console.log('Loaded input props from file');
         console.log(`  - Tracks: ${inputProps.tracks?.length || 0}`);
         console.log(`  - CSV Data rows: ${inputProps.csvData?.length || 0}`);
         console.log(`  - Audio URLs: ${inputProps.audioUrls?.length || 0}`);
       } catch (err) {
-        console.warn('⚠️  Could not load input props, using defaults:', err.message);
+        console.warn('Could not load input props, using defaults:', err.message);
       }
     }
 
@@ -49,7 +49,7 @@ async function render() {
         fs.mkdirSync(publicAudioDir, { recursive: true });
       }
       
-      console.log('🔄 Converting audio URLs to public file paths...');
+      console.log('Converting audio URLs to public file paths...');
       inputProps.audioUrls = await Promise.all(inputProps.audioUrls.map(async (segment) => {
         // Parse URL để lấy text, lang và speed
         // Update regex to handle potential speed param
@@ -59,7 +59,7 @@ async function render() {
           if (segment.url.startsWith('/audio/') || segment.url.startsWith('http')) {
             return segment;
           }
-          console.warn(`⚠️  Could not parse URL: ${segment.url}`);
+          console.warn(`Could not parse URL: ${segment.url}`);
           return segment;
         }
         
@@ -88,7 +88,7 @@ async function render() {
           };
         } else {
           // Nếu file chưa tồn tại, cần download từ Google TTS
-          console.log(`  ⬇️  Downloading audio for: "${text.substring(0, 50)}..." (speed: ${speed})`);
+          console.log(`Downloading audio for: "${text.substring(0, 50)}..." (speed: ${speed})`);
           try {
             const googleTTSModule = await import('google-tts-api');
             const getAudioUrl = googleTTSModule.getAudioUrl || googleTTSModule.default?.getAudioUrl;
@@ -135,7 +135,7 @@ async function render() {
                      command
                         .toFormat('mp3')
                         .on('error', (err) => {
-                            console.error('  ❌ FFmpeg error:', err);
+                            console.error('  FFmpeg error:', err);
                             reject(err);
                         })
                         .on('end', () => {
@@ -158,17 +158,17 @@ async function render() {
               url: `/audio/${hash}.mp3`
             };
           } catch (err) {
-            console.error(`  ❌ Failed to download audio: ${err.message}`);
+            console.error(`  Failed to download audio: ${err.message}`);
             // Trả về segment gốc, có thể sẽ fail khi render nhưng ít nhất không crash
             return segment;
           }
         }
       }));
       
-      console.log('✅ Audio URLs converted to public file paths');
+      console.log('Audio URLs converted to public file paths');
     }
 
-    console.log('📦 Bundling Remotion project...');
+    console.log('Bundling Remotion project...');
     
     // Bundle dự án Remotion (tự động phát hiện Vite)
     const bundleLocation = await bundle({
@@ -181,7 +181,7 @@ async function render() {
       },
     });
 
-    console.log('✅ Bundle completed:', bundleLocation);
+    console.log('Bundle completed:', bundleLocation);
 
     // Copy audio files vào bundle location để Remotion có thể serve chúng
     if (inputProps.audioUrls && inputProps.audioUrls.length > 0) {
@@ -193,7 +193,7 @@ async function render() {
         fs.mkdirSync(bundleAudioDir, { recursive: true });
       }
       
-      console.log('📁 Copying audio files to bundle location...');
+      console.log('Copying audio files to bundle location...');
       for (const segment of inputProps.audioUrls) {
         if (segment.url && segment.url.startsWith('/audio/')) {
           const fileName = segment.url.replace('/audio/', '');
@@ -204,16 +204,16 @@ async function render() {
             fs.copyFileSync(sourceFile, destFile);
             console.log(`  ✓ Copied: ${fileName}`);
           } else {
-            console.warn(`  ⚠️  File not found: ${sourceFile}`);
+            console.warn(`File not found: ${sourceFile}`);
           }
         }
       }
-      console.log('✅ Audio files copied to bundle');
+      console.log('Audio files copied to bundle');
     }
 
     // inputProps đã được load và convert audio URLs ở trên
 
-    console.log('📋 Getting compositions...');
+    console.log('Getting compositions...');
     
     // Lấy danh sách compositions với input props để tính duration đúng
     const compositions = await getCompositions(bundleLocation, {
@@ -229,7 +229,7 @@ async function render() {
       throw new Error(`Composition với ID "Infographic" không tồn tại`);
     }
 
-    console.log('🎬 Starting render...');
+    console.log('Starting render...');
     console.log(`Composition: ${composition.id}`);
     console.log(`Duration: ${composition.durationInFrames} frames (${(composition.durationInFrames / composition.fps).toFixed(2)}s)`);
     console.log(`Resolution: ${composition.width}x${composition.height}`);
@@ -265,12 +265,12 @@ async function render() {
       },
     });
 
-    console.log('✅ Render completed successfully!');
-    console.log(`📹 Output: ${outputLocation}`);
+    console.log('Render completed successfully!');
+    console.log(`Output: ${outputLocation}`);
     
     process.exit(0);
   } catch (error) {
-    console.error('❌ Render failed:', error);
+    console.error('Render failed:', error);
     process.exit(1);
   }
 }
